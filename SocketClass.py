@@ -23,20 +23,51 @@ class SocketClass(object):
                            text="Connect", 
                            command=self.connect_client,
                            background = 'red')
-        self.ConnectButton.grid(row = 0,column = 0)
+        self.ConnectButton.grid(row = 0,column = 0,sticky='E',padx=10)
         #FRC_ConnectButton
         self.FRC_ConnectButton = tk.Button(self.right_frame, 
                            text="FRC_Connect", 
                            command=self.FRC_Connect_function,
                            background = 'red')
-        self.FRC_ConnectButton.grid(row = 1,column = 0)
+        self.FRC_ConnectButton.grid(row = 1,column = 0,sticky='E',padx=10)
         
         # Read POS REG Button 
         self.FRC_GetPosRegButton = tk.Button(self.right_frame, 
                            text="Get Pos Reg", 
-                           command=lambda: self.read_POSREG_command(1),
+                           command=self.read_POSREG_command,
                            background = 'red')
-        self.FRC_GetPosRegButton.grid(row = 2,column = 0)
+        self.FRC_GetPosRegButton.grid(row = 2,column = 0,sticky='E',padx=10)
+        
+         # Write POS REG Button 
+        self.FRC_GetPosRegButton = tk.Button(self.right_frame, 
+                           text="Write Pos Reg", 
+                           command=self.write_POSREG_command,
+                           background = 'red')
+        self.FRC_GetPosRegButton.grid(row = 3,column = 0,sticky='E',padx=10)
+          # Disconnect 
+        self.FRC_DisconnectButton = tk.Button(self.right_frame, 
+                           text="FRC_Disconnect", 
+                           command=self.FRC_Disconnect_function,
+                           background = 'red')
+        self.FRC_DisconnectButton.grid(row = 4,column = 0,sticky='E',padx=10)
+        
+        # left side 
+        self.label_PosRegNum = tk.Label(self.left_frame, fg="black",text="Enter POS Reg Number to read/write")
+        self.label_PosRegNum.grid(row = 0,column = 0,sticky='W',padx=10)
+        
+        self.entry_PosRegNum_str = tk.StringVar()
+        self.entry_PosRegNum = tk.Entry(self.left_frame, textvariable=self.entry_PosRegNum_str,width = 5)
+        self.entry_PosRegNum.grid(row = 1,column = 0,sticky='W',padx=10)
+        self.entry_PosRegNum_str.set("1")
+        
+        self.label_PosReg = tk.Label(self.left_frame, fg="black",text="Enter POS Reg Values here")
+        self.label_PosReg.grid(row = 2,column = 0,sticky='W',padx=10)
+        
+        self.entry_PosReg_str = tk.StringVar()
+        self.entry_PosReg = tk.Entry(self.left_frame, textvariable=self.entry_PosReg_str,width = 80)
+        self.entry_PosReg.grid(row = 3,column = 0,sticky='W',padx=10)
+        self.entry_PosReg_str.set("Example: X10.1,Y20.1,Z30.5,W40.4,P50.5,R60.6,")
+
         
        
         
@@ -74,7 +105,7 @@ class SocketClass(object):
 
 
     """
-    Send RMI Command
+     RMI_Connect Command
     """
     def FRC_Connect_function(self):
         m = {'Communication':'FRC_COnnect'}
@@ -97,14 +128,32 @@ class SocketClass(object):
         return 
     
     """
+    RMI_DisConnect Command
+    """
+    def FRC_Disconnect_function(self):
+        m = {'Communication':'FRC_Disconnect'}
+        jsonObj=json.dumps(m)
+        try:
+            msg=jsonObj+'\r\n'
+            self.Connection.sendall(msg.encode('utf-8'))
+            # Receive data from the server and shut down
+            received = self.Connection.recv(1024)
+            received = received.decode("utf-8")
+            print (received)
+            self.close_client()
+        except Exception as e:
+            print('Error in FRC_Disconnect')
+        return 
+    
+    """
     Read POSREG Command
     """
-    def read_POSREG_command(self,PosRegNumm):
+    def read_POSREG_command(self):
+        PosRegNumm=self.entry_PosRegNum_str.get()
         m = {'Command':'FRC_ReadPositionRegister','RegisterNumber': PosRegNumm}
         jsonObj=json.dumps(m)
         try:
             msg=jsonObj+'\r\n'
-            print(msg)
             self.Connection.sendall(msg.encode('utf-8'))
             # Receive data from the server and shut down
             received = self.Connection.recv(1024)
@@ -113,3 +162,60 @@ class SocketClass(object):
         except Exception as e:
             pass
         return
+    
+    """
+    FRC_WritePositionRegister
+    """
+    def write_POSREG_command(self):
+        PosRegNumm=self.entry_PosRegNum_str.get()
+        entered=self.entry_PosReg_str.get()
+        X= self.extract(entered,'X')
+        Y= self.extract(entered,'Y')
+        Z= self.extract(entered,'Z')
+        W= self.extract(entered,'W')
+        P= self.extract(entered,'P')
+        R= self.extract(entered,'R')
+        
+        m = {
+            'Command'          : 'FRC_WritePositionRegister',
+             'RegisterNumber'   : PosRegNumm,
+             'Configuration'    : {
+                 'UToolNumber'  : 1,
+                 'UFrameNumber' : 1,
+                 'Front'        : 1,
+                 'Up'           : 1,
+                 'Left'         : 1,
+                 'Flip'         : 0,
+                 'Turn4'        : 0,
+                 'Turn5'        : 0,
+                 'Turn6'        : 0},
+             'Position'         : { 
+                 'X'            : X, 
+                 'Y'            : Y,
+                 'Z'            : Z, 
+                 'W'            : W, 
+                 'P'            : P,
+                 'R'            : R, 
+                 'Ext1'         : 0.0,
+                 'Ext2'         : 0.0, 
+                 'Ext3'         : 0.0 },
+             'Group': 1
+             }
+        jsonObj=json.dumps(m)
+        try:
+            msg=jsonObj+'\r\n'
+            self.Connection.sendall(msg.encode('utf-8'))
+            # Receive data from the server and shut down
+            received = self.Connection.recv(1024)
+            received = received.decode("utf-8")
+            print (received)
+        except Exception as e:
+            pass
+        return
+    
+    def extract(self,inputStr,value):
+        startidx=inputStr.find(value)
+        endidx=inputStr[startidx:].find(',')
+        foundvalue=inputStr[startidx+1:startidx+endidx]
+        return foundvalue
+        
